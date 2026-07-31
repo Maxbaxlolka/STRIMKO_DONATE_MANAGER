@@ -1,0 +1,200 @@
+*{box-sizing:border-box}
+
+html,body{
+  width:100%;
+  height:100%;
+  margin:0;
+  overflow:hidden
+}
+
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  color:#fff;
+  background:transparent
+}
+
+#overlayStage{
+  width:100%;
+  height:100%;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  padding:6vh 24px 24px;
+  pointer-events:none
+}
+
+/*
+  ВАЖНО:
+  width:max-content позволяет фону автоматически подстраиваться под донат.
+  max-width не даёт длинному сообщению выйти за экран.
+*/
+.donate-alert{
+  position:relative;
+  display:inline-flex;
+  width:max-content;
+  max-width:min(92vw,1050px);
+  min-width:280px;
+  align-items:center;
+  gap:18px;
+  padding:20px 24px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:24px;
+  background:linear-gradient(
+    135deg,
+    rgba(28,20,42,.97),
+    rgba(12,12,20,.96) 45%,
+    rgba(24,10,28,.96)
+  );
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.58),
+    0 0 34px rgba(255,33,99,.22);
+  backdrop-filter:blur(10px)
+}
+
+.donate-alert[hidden]{display:none}
+.donate-alert.show{animation:alertIn .65s cubic-bezier(.18,.9,.22,1) both}
+.donate-alert.hide{animation:alertOut .45s ease-in both}
+
+.alert-glow{
+  position:absolute;
+  inset:-3px;
+  z-index:-1;
+  border-radius:27px;
+  background:linear-gradient(
+    120deg,
+    #ff1f63,
+    #ff8a00,
+    #7d35ff,
+    #00d7ff,
+    #ff1f63
+  );
+  background-size:300% 300%;
+  filter:blur(19px);
+  opacity:.27;
+  animation:glowMove 4s linear infinite
+}
+
+/* Блок появляется только при использовании GIF */
+.media-box{
+  flex:0 0 110px;
+  width:110px;
+  height:110px;
+  overflow:hidden;
+  border-radius:20px;
+  background:#111;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,.09),
+    0 0 25px rgba(0,0,0,.35)
+}
+
+.media-box[hidden]{display:none}
+
+.media-box img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover
+}
+
+/*
+  Контент сам определяет необходимую ширину.
+  Для длинного сообщения включается перенос.
+*/
+.alert-content{
+  position:relative;
+  z-index:1;
+  width:max-content;
+  min-width:0;
+  max-width:min(760px,78vw)
+}
+
+.simulation-badge{
+  display:inline-block;
+  margin-bottom:7px;
+  padding:4px 8px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  background:rgba(255,255,255,.06);
+  color:#cfcfd7;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:.14em
+}
+
+.donate-title{
+  display:flex;
+  width:max-content;
+  max-width:100%;
+  align-items:baseline;
+  flex-wrap:wrap;
+  gap:0 6px;
+  font-size:31px;
+  font-weight:900;
+  line-height:1.16;
+  text-shadow:0 2px 15px rgba(0,0,0,.45);
+  overflow-wrap:anywhere
+}
+
+#donateName{
+  max-width:100%;
+  overflow-wrap:anywhere
+}
+
+#donateAmount{
+  color:#ffd84a;
+  white-space:nowrap
+}
+
+.donate-separator{
+  color:#83838f
+}
+
+.donate-message{
+  width:fit-content;
+  max-width:100%;
+  margin-top:9px;
+  color:#f1f1f5;
+  font-size:21px;
+  line-height:1.35;
+  white-space:normal;
+  overflow-wrap:anywhere
+}
+
+@keyframes alertIn{
+  0%{opacity:0;transform:translateY(-65px) scale(.84)}
+  70%{opacity:1;transform:translateY(7px) scale(1.02)}
+  100%{opacity:1;transform:translateY(0) scale(1)}
+}
+
+@keyframes alertOut{
+  to{opacity:0;transform:translateY(-35px) scale(.95)}
+}
+
+@keyframes glowMove{
+  from{background-position:0 50%}
+  to{background-position:300% 50%}
+}
+
+@media(max-width:680px){
+  #overlayStage{padding:3vh 12px 12px}
+
+  .donate-alert{
+    max-width:96vw;
+    min-width:220px;
+    gap:12px;
+    padding:16px 18px;
+    border-radius:19px
+  }
+
+  .media-box{
+    flex-basis:76px;
+    width:76px;
+    height:76px;
+    border-radius:15px
+  }
+
+  .alert-content{max-width:72vw}
+  .donate-title{font-size:22px}
+  .donate-message{font-size:17px}
+}
