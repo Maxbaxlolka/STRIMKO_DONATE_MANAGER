@@ -74,9 +74,9 @@ const SOUNDS = [
   // "sounds/bruh.mp3"
 ];
 
-/* СЮДА ДОБАВЛЯЙ GIF */
+/* ВИДЕОЭФФЕКТЫ ДОНАТА — зелёный фон уже удалён */
 const GIFS = [
-  // "gifs/cat.gif"
+  "effects/money_rain.webm"
 ];
 
 const alertBox = document.getElementById("donateAlert");
@@ -154,8 +154,14 @@ async function showDonate(donate) {
 
   if (gifPath) {
     gifEl.src = gifPath;
+    gifEl.currentTime = 0;
     mediaBox.hidden = false;
+    const playPromise = gifEl.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
   } else {
+    gifEl.pause();
     gifEl.removeAttribute("src");
     mediaBox.hidden = true;
   }
@@ -188,6 +194,8 @@ async function showDonate(donate) {
 
   alertBox.hidden = true;
   alertBox.classList.remove("hide");
+  gifEl.pause();
+  gifEl.currentTime = 0;
 }
 
 function playNotificationSound() {
