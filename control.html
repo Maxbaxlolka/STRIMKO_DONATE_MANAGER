@@ -123,11 +123,33 @@
 
           <label class="toggle-row">
             <div>
-              <strong>Озвучивание TTS</strong>
-              <span>Читает ник, сумму и сообщение</span>
+              <strong>Озвучивать ник</strong>
+              <span>Например: «DarkWolf228»</span>
             </div>
             <span class="switch">
-              <input id="ttsEnabled" type="checkbox">
+              <input id="ttsReadName" type="checkbox">
+              <span class="slider"></span>
+            </span>
+          </label>
+
+          <label class="toggle-row">
+            <div>
+              <strong>Озвучивать сумму</strong>
+              <span>100000 → «сто тысяч», 1000000 → «один миллион»</span>
+            </div>
+            <span class="switch">
+              <input id="ttsReadAmount" type="checkbox">
+              <span class="slider"></span>
+            </span>
+          </label>
+
+          <label class="toggle-row">
+            <div>
+              <strong>Озвучивать сообщение</strong>
+              <span>Читает текст доната</span>
+            </div>
+            <span class="switch">
+              <input id="ttsReadMessage" type="checkbox">
               <span class="slider"></span>
             </span>
           </label>
