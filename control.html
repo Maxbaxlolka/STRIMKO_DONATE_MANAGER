@@ -210,7 +210,7 @@
       <section class="panel">
         <span class="eyebrow">БАЗА АВТОДОНАТОВ</span>
         <h2>Никнеймы и сообщения</h2>
-        <p class="panel-help">По одному нику или сообщению на каждой строке. Можно вставить обычный TXT или готовый массив <code>const MESSAGES = [...]</code>.</p>
+        <p class="panel-help">Здесь находится твоя рабочая база. Загрузи или вставь ники и сообщения, затем нажми «Сохранить ники и сообщения» — они сохранятся в Firebase.</p>
 
         <div class="content-editor-grid">
           <div class="content-editor">
@@ -218,7 +218,7 @@
               <strong>Никнеймы</strong>
               <span id="namesCount" class="count-badge">0</span>
             </div>
-            <textarea id="namesEditor" class="large-editor" placeholder="StormBreaker&#10;IronFalcon&#10;SilentHunter"></textarea>
+            <textarea id="namesEditor" class="large-editor" placeholder="ПРЕЗИДЕНТ США&#10;ПРЕЗИДЕНТ ФРАНЦИИ&#10;ПРЕЗИДЕНТ ПОЛЬШИ"></textarea>
             <label class="file-button">
               Загрузить файл с никами
               <input id="namesFile" type="file" accept=".txt,.js,.json,text/plain,application/javascript,application/json">
@@ -230,7 +230,7 @@
               <strong>Сообщения</strong>
               <span id="messagesCount" class="count-badge">0</span>
             </div>
-            <textarea id="messagesEditor" class="large-editor" placeholder="Хорошего стрима!&#10;Какой танк сегодня качаем?&#10;Лови поддержку!"></textarea>
+            <textarea id="messagesEditor" class="large-editor" placeholder="Предлагаю обсудить совместный проект.&#10;Есть деловое предложение по инвестициям.&#10;Готовы обсудить контракт."></textarea>
             <label class="file-button">
               Загрузить файл с сообщениями
               <input id="messagesFile" type="file" accept=".txt,.js,.json,text/plain,application/javascript,application/json">
@@ -240,7 +240,7 @@
 
         <div class="button-grid content-buttons">
           <button id="saveContent" class="button primary">Сохранить ники и сообщения</button>
-          <button id="restoreContent" class="button secondary">Вернуть встроенные списки</button>
+          <button id="restoreContent" class="button secondary">Очистить поля</button>
           <button id="clearEvents" class="button danger">Очистить старые донаты</button>
         </div>
         <div id="contentMessage" class="message-box"></div>
@@ -298,6 +298,6 @@
 
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
-  <script src="control.js?v=16"></script>
+  <script src="control.js?v=17"></script>
 </body>
 </html>
