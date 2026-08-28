@@ -31,6 +31,7 @@ const DEFAULTS = {
   soundEnabled: true,
   gifEnabled: true,
   ttsEnabled: true,
+  ttsVoiceMode: "funny",
   volume: 70
 };
 
@@ -84,6 +85,7 @@ let queue = [];
 let busy = false;
 let autoTimer = null;
 let availableVoices = [];
+let lastVoiceName = "";
 const startedAt = Date.now();
 
 function randomItem(items) {
@@ -220,22 +222,92 @@ function loadVoices() {
   return availableVoices;
 }
 
-function selectRussianVoice() {
-  const voices = loadVoices();
+function voiceLang(voice) {
+  return String(voice && voice.lang || "").toLowerCase().replace("_", "-");
+}
 
-  return (
-    voices.find(voice =>
-      String(voice.lang).toLowerCase() === "ru-ru"
-    ) ||
-    voices.find(voice =>
-      String(voice.lang).toLowerCase().startsWith("ru")
-    ) ||
-    voices.find(voice =>
-      /russian|рус/i.test(`${voice.name} ${voice.lang}`)
-    ) ||
-    voices[0] ||
-    null
-  );
+function getRussianVoices() {
+  const voices = loadVoices();
+  const russian = voices.filter(voice => {
+    const lang = voiceLang(voice);
+    const label = `${voice.name || ""} ${voice.lang || ""}`;
+    return lang === "ru-ru" || lang.startsWith("ru") || /russian|рус/i.test(label);
+  });
+  return russian.length ? russian : voices;
+}
+
+function getCisVoices() {
+  const voices = loadVoices();
+  // Русский + языки СНГ/ближнего региона. Набор реально доступных
+  // голосов зависит от Windows/Chromium на компьютере со стримом.
+  const prefixes = [
+    "ru", "uk", "be", "kk", "uz", "az", "hy", "ka", "ky", "tg", "tk", "ro"
+  ];
+  const pool = voices.filter(voice => {
+    const lang = voiceLang(voice);
+    return prefixes.some(prefix => lang === prefix || lang.startsWith(prefix + "-"));
+  });
+  return pool.length ? pool : getRussianVoices();
+}
+
+function getFunnyVoices() {
+  const voices = loadVoices();
+  if (!voices.length) return [];
+
+  // Сначала стараемся брать СНГ/соседние языки. Если их мало,
+  // добавляем европейские/английские голоса — русский текст у них
+  // часто звучит забавно за счёт произношения.
+  const preferredPrefixes = [
+    "ru", "uk", "be", "kk", "uz", "az", "hy", "ka", "ky", "tg", "tk", "ro",
+    "pl", "tr", "en", "de", "fr", "it", "es", "cs", "sk", "bg", "sr"
+  ];
+  const preferred = voices.filter(voice => {
+    const lang = voiceLang(voice);
+    return preferredPrefixes.some(prefix => lang === prefix || lang.startsWith(prefix + "-"));
+  });
+  return preferred.length >= 2 ? preferred : voices;
+}
+
+function getVoicePool(mode) {
+  if (mode === "random_all") return loadVoices();
+  if (mode === "random_ru" || mode === "first") return getRussianVoices();
+  if (mode === "random_cis") return getCisVoices();
+  return getFunnyVoices();
+}
+
+function selectTtsVoice() {
+  const mode = settings.ttsVoiceMode || "funny";
+  const voices = getVoicePool(mode);
+  if (!voices.length) return null;
+
+  if (mode === "first") {
+    const voice = voices[0];
+    lastVoiceName = voice.name || "";
+    return voice;
+  }
+
+  // Не повторяем предыдущий голос, если доступно хотя бы два.
+  const candidates = voices.length > 1
+    ? voices.filter(voice => (voice.name || "") !== lastVoiceName)
+    : voices;
+
+  const voice = candidates[Math.floor(Math.random() * candidates.length)] || voices[0];
+  lastVoiceName = voice.name || "";
+  return voice;
+}
+
+function funnyDelivery() {
+  if (settings.ttsVoiceMode !== "funny") {
+    return { rate: 0.96, pitch: 1.0 };
+  }
+
+  // Небольшая вариативность, чтобы речь была живее, но оставалась понятной.
+  const rates = [0.84, 0.90, 0.96, 1.02, 1.08, 1.14];
+  const pitches = [0.82, 0.90, 1.00, 1.08, 1.16, 1.24];
+  return {
+    rate: randomItem(rates),
+    pitch: randomItem(pitches)
+  };
 }
 
 function currencyForSpeech(currency, amount) {
@@ -286,11 +358,12 @@ function speakDonate(donate) {
     synth.resume();
 
     const utterance = new SpeechSynthesisUtterance(speechText);
-    const selectedVoice = selectRussianVoice();
+    const selectedVoice = selectTtsVoice();
 
-    utterance.lang = "ru-RU";
-    utterance.rate = 0.96;
-    utterance.pitch = 1;
+    const delivery = funnyDelivery();
+    utterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : "ru-RU";
+    utterance.rate = delivery.rate;
+    utterance.pitch = delivery.pitch;
     utterance.volume = Math.min(
       1,
       Math.max(0.1, Number(settings.volume) / 100)
