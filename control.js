@@ -18,6 +18,7 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 const settingsRef = db.ref("donateManager/settings");
 const eventsRef = db.ref("donateManager/events");
+const shownCountRef = db.ref("donateManager/stats/shownCount");
 const connectedRef = db.ref(".info/connected");
 const contentRef = db.ref("donateManager/content");
 
@@ -458,8 +459,8 @@ $("restoreContent").addEventListener("click", () => {
 $("clearEvents").addEventListener("click", async () => {
   if (!confirm("Удалить все старые события донатов из Firebase?")) return;
   try {
-    await eventsRef.remove();
-    showContentMessage("Старые события донатов полностью удалены.");
+    await Promise.all([eventsRef.remove(), shownCountRef.set(0)]);
+    showContentMessage("Старые события удалены, счётчик показанных алертов сброшен.");
   } catch (error) {
     console.error("Ошибка очистки событий:", error);
     showContentMessage("Firebase запретила очистку событий.", true);
@@ -617,13 +618,13 @@ settingsRef.on(
   }
 );
 
-eventsRef.limitToLast(200).on(
+shownCountRef.on(
   "value",
   snapshot => {
-    $("shownCount").textContent = String(snapshot.numChildren());
+    $("shownCount").textContent = String(Number(snapshot.val()) || 0);
   },
   error => {
-    console.warn("Не удалось получить счётчик алертов:", error);
+    console.warn("Не удалось получить счётчик показанных алертов:", error);
   }
 );
 })();
