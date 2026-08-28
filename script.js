@@ -18,6 +18,7 @@ if (!firebase.apps.length) {
 const db = firebase.database();
 const settingsRef = db.ref("donateManager/settings");
 const eventsRef = db.ref("donateManager/events");
+const shownCountRef = db.ref("donateManager/stats/shownCount");
 const contentRef = db.ref("donateManager/content");
 
 const DEFAULTS = {
