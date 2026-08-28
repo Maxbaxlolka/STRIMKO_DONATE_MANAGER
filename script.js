@@ -31,6 +31,9 @@ const DEFAULTS = {
   soundEnabled: true,
   gifEnabled: true,
   ttsEnabled: true,
+  ttsReadName: true,
+  ttsReadAmount: true,
+  ttsReadMessage: true,
   ttsVoiceMode: "funny",
   volume: 70
 };
@@ -158,7 +161,10 @@ async function showDonate(donate) {
     Небольшая задержка нужна, чтобы OBS успел показать алерт
     и загрузить системные голоса перед началом чтения.
   */
-  if (settings.ttsEnabled) {
+  if (
+    settings.ttsEnabled !== false &&
+    (settings.ttsReadName !== false || settings.ttsReadAmount !== false || settings.ttsReadMessage !== false)
+  ) {
     setTimeout(() => speakDonate({name, amount, currency, message}), 350);
   }
 
@@ -310,30 +316,148 @@ function funnyDelivery() {
   };
 }
 
+function pluralForm(number, one, few, many) {
+  const n = Math.abs(Math.trunc(Number(number) || 0));
+  const n100 = n % 100;
+  const n10 = n % 10;
+
+  if (n100 >= 11 && n100 <= 14) return many;
+  if (n10 === 1) return one;
+  if (n10 >= 2 && n10 <= 4) return few;
+  return many;
+}
+
 function currencyForSpeech(currency, amount) {
   const value = String(currency || "").trim().toLowerCase();
+  const numericAmount = Number(String(amount ?? "").replace(/\s+/g, "").replace(",", "."));
 
   if (value === "₴" || value === "uah" || value.includes("грн")) {
-    return "гривен";
+    return pluralForm(numericAmount, "гривна", "гривны", "гривен");
   }
 
   if (value === "₽" || value === "rub" || value.includes("руб")) {
-    return "рублей";
+    return pluralForm(numericAmount, "рубль", "рубля", "рублей");
   }
 
   if (value === "$" || value === "usd") {
-    return "долларов";
+    return pluralForm(numericAmount, "доллар", "доллара", "долларов");
   }
 
   if (value === "€" || value === "eur") {
     return "евро";
   }
 
+  if (value === "usdt") {
+    return "USDT";
+  }
+
   return currency || "";
 }
 
 /*
-  Читает: ник, сумму и сообщение.
+  Преобразование суммы в русские слова.
+  Примеры:
+  100000    -> "сто тысяч"
+  1000000   -> "один миллион"
+  10000000  -> "десять миллионов"
+*/
+function numberToRussianWords(value) {
+  const raw = String(value ?? "").trim().replace(/\s+/g, "").replace(",", ".");
+  const number = Number(raw);
+
+  if (!Number.isFinite(number)) {
+    return String(value ?? "");
+  }
+
+  const integer = Math.trunc(Math.abs(number));
+
+  if (integer === 0) return "ноль";
+
+  // Для сумм донатов этого более чем достаточно: до квадриллионов.
+  if (integer > 999999999999999) {
+    return String(integer);
+  }
+
+  const unitsMale = [
+    "", "один", "два", "три", "четыре",
+    "пять", "шесть", "семь", "восемь", "девять"
+  ];
+  const unitsFemale = [
+    "", "одна", "две", "три", "четыре",
+    "пять", "шесть", "семь", "восемь", "девять"
+  ];
+  const teens = [
+    "десять", "одиннадцать", "двенадцать", "тринадцать", "четырнадцать",
+    "пятнадцать", "шестнадцать", "семнадцать", "восемнадцать", "девятнадцать"
+  ];
+  const tens = [
+    "", "", "двадцать", "тридцать", "сорок",
+    "пятьдесят", "шестьдесят", "семьдесят", "восемьдесят", "девяносто"
+  ];
+  const hundreds = [
+    "", "сто", "двести", "триста", "четыреста",
+    "пятьсот", "шестьсот", "семьсот", "восемьсот", "девятьсот"
+  ];
+
+  const groups = [
+    { one: "", few: "", many: "", female: false },
+    { one: "тысяча", few: "тысячи", many: "тысяч", female: true },
+    { one: "миллион", few: "миллиона", many: "миллионов", female: false },
+    { one: "миллиард", few: "миллиарда", many: "миллиардов", female: false },
+    { one: "триллион", few: "триллиона", many: "триллионов", female: false },
+    { one: "квадриллион", few: "квадриллиона", many: "квадриллионов", female: false }
+  ];
+
+  function tripletToWords(n, female) {
+    const result = [];
+    const h = Math.floor(n / 100);
+    const lastTwo = n % 100;
+    const t = Math.floor(lastTwo / 10);
+    const u = lastTwo % 10;
+
+    if (h) result.push(hundreds[h]);
+
+    if (lastTwo >= 10 && lastTwo <= 19) {
+      result.push(teens[lastTwo - 10]);
+    } else {
+      if (t) result.push(tens[t]);
+      if (u) result.push((female ? unitsFemale : unitsMale)[u]);
+    }
+
+    return result;
+  }
+
+  const words = [];
+  let remaining = integer;
+  let groupIndex = 0;
+
+  while (remaining > 0) {
+    const triplet = remaining % 1000;
+
+    if (triplet > 0) {
+      const group = groups[groupIndex];
+      const part = tripletToWords(triplet, group.female);
+
+      if (groupIndex > 0) {
+        part.push(pluralForm(triplet, group.one, group.few, group.many));
+      }
+
+      words.unshift(...part);
+    }
+
+    remaining = Math.floor(remaining / 1000);
+    groupIndex += 1;
+  }
+
+  if (number < 0) {
+    words.unshift("минус");
+  }
+
+  return words.join(" ").replace(/\s+/g, " ").trim();
+}
+
+/*
+  Ник, сумма и сообщение включаются независимо друг от друга.
   Используется стандартный системный голос браузера/Windows.
 */
 function speakDonate(donate) {
@@ -344,15 +468,29 @@ function speakDonate(donate) {
 
   try {
     const synth = window.speechSynthesis;
-    const spokenCurrency = currencyForSpeech(
-      donate.currency,
-      donate.amount
-    );
+    const parts = [];
 
-    const speechText =
-      `${donate.name}. ` +
-      `${donate.amount} ${spokenCurrency}. ` +
-      `${donate.message}`;
+    if (settings.ttsReadName !== false) {
+      const name = String(donate.name || "").trim();
+      if (name) parts.push(name);
+    }
+
+    if (settings.ttsReadAmount !== false) {
+      const spokenAmount = numberToRussianWords(donate.amount);
+      const spokenCurrency = currencyForSpeech(donate.currency, donate.amount);
+      const amountPart = `${spokenAmount} ${spokenCurrency}`.trim();
+      if (amountPart) parts.push(amountPart);
+    }
+
+    if (settings.ttsReadMessage !== false) {
+      const message = String(donate.message || "").trim();
+      if (message) parts.push(message);
+    }
+
+    const speechText = parts.join(". ").trim();
+
+    // Если все три переключателя выключены — ничего не читаем.
+    if (!speechText) return;
 
     synth.cancel();
     synth.resume();
