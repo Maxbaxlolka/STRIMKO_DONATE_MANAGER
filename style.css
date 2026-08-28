@@ -53,26 +53,31 @@ body{
   display:none
 }
 
-/* Блок появляется только при использовании GIF */
+/* Прозрачный видеоэффект денег: никакого квадрата или фона */
 .media-box{
-  flex:0 0 110px;
-  width:110px;
-  height:110px;
-  overflow:hidden;
-  border-radius:20px;
-  background:#111;
-  box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.09),
-    0 0 25px rgba(0,0,0,.35)
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  width:min(1000px,96vw);
+  height:min(560px,72vh);
+  overflow:visible;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  pointer-events:none;
+  z-index:0
 }
 
 .media-box[hidden]{display:none}
 
-.media-box img{
+.media-box video{
   display:block;
   width:100%;
   height:100%;
-  object-fit:cover
+  object-fit:contain;
+  background:transparent
 }
 
 /*
@@ -81,7 +86,7 @@ body{
 */
 .alert-content{
   position:relative;
-  z-index:1;
+  z-index:2;
   width:max-content;
   min-width:0;
   max-width:min(760px,78vw)
@@ -163,13 +168,6 @@ body{
     gap:12px;
     padding:16px 18px;
     border-radius:19px
-  }
-
-  .media-box{
-    flex-basis:76px;
-    width:76px;
-    height:76px;
-    border-radius:15px
   }
 
   .alert-content{max-width:72vw}
