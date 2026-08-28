@@ -33,6 +33,9 @@ const DEFAULTS = {
   duration: 8,
   soundEnabled: true,
   gifEnabled: true,
+  showName: true,
+  showAmount: true,
+  showMessage: true,
   ttsEnabled: true,
   ttsReadName: true,
   ttsReadAmount: true,
@@ -1185,6 +1188,9 @@ function normalizeSettings(raw = {}) {
     ),
     soundEnabled: Boolean(raw.soundEnabled),
     gifEnabled: Boolean(raw.gifEnabled),
+    showName: raw.showName !== false,
+    showAmount: raw.showAmount !== false,
+    showMessage: raw.showMessage !== false,
     ttsEnabled: raw.ttsEnabled !== false,
     ttsReadName: raw.ttsReadName !== false,
     ttsReadAmount: raw.ttsReadAmount !== false,
@@ -1293,6 +1299,9 @@ function readForm() {
     duration: $("duration").value,
     soundEnabled: $("soundEnabled").checked,
     gifEnabled: $("gifEnabled").checked,
+    showName: $("showName").checked,
+    showAmount: $("showAmount").checked,
+    showMessage: $("showMessage").checked,
     ttsEnabled: $("ttsReadName").checked || $("ttsReadAmount").checked || $("ttsReadMessage").checked,
     ttsReadName: $("ttsReadName").checked,
     ttsReadAmount: $("ttsReadAmount").checked,
@@ -1594,7 +1603,7 @@ $("openOverlay").addEventListener("click", () => {
   Переключатели сохраняются сразу.
   Числа, валюта и громкость сохраняются по кнопке.
 */
-["enabled", "soundEnabled", "gifEnabled", "ttsReadName", "ttsReadAmount", "ttsReadMessage"].forEach(id => {
+["enabled", "soundEnabled", "gifEnabled", "showName", "showAmount", "showMessage", "ttsReadName", "ttsReadAmount", "ttsReadMessage"].forEach(id => {
   $(id).addEventListener("change", () => {
     if (isApplyingRemoteSettings) return;
 
