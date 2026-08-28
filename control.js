@@ -34,6 +34,9 @@ const DEFAULTS = {
   soundEnabled: true,
   gifEnabled: true,
   ttsEnabled: true,
+  ttsReadName: true,
+  ttsReadAmount: true,
+  ttsReadMessage: true,
   ttsVoiceMode: "funny",
   volume: 70
 };
@@ -1182,7 +1185,10 @@ function normalizeSettings(raw = {}) {
     ),
     soundEnabled: Boolean(raw.soundEnabled),
     gifEnabled: Boolean(raw.gifEnabled),
-    ttsEnabled: Boolean(raw.ttsEnabled),
+    ttsEnabled: raw.ttsEnabled !== false,
+    ttsReadName: raw.ttsReadName !== false,
+    ttsReadAmount: raw.ttsReadAmount !== false,
+    ttsReadMessage: raw.ttsReadMessage !== false,
     ttsVoiceMode: ["funny", "random_cis", "random_ru", "random_all", "first"].includes(raw.ttsVoiceMode)
       ? raw.ttsVoiceMode
       : (raw.ttsVoiceMode === "random" ? "random_cis" : DEFAULTS.ttsVoiceMode),
@@ -1287,7 +1293,10 @@ function readForm() {
     duration: $("duration").value,
     soundEnabled: $("soundEnabled").checked,
     gifEnabled: $("gifEnabled").checked,
-    ttsEnabled: $("ttsEnabled").checked,
+    ttsEnabled: $("ttsReadName").checked || $("ttsReadAmount").checked || $("ttsReadMessage").checked,
+    ttsReadName: $("ttsReadName").checked,
+    ttsReadAmount: $("ttsReadAmount").checked,
+    ttsReadMessage: $("ttsReadMessage").checked,
     ttsVoiceMode: $("ttsVoiceMode").value,
     volume: $("volume").value
   });
@@ -1585,7 +1594,7 @@ $("openOverlay").addEventListener("click", () => {
   Переключатели сохраняются сразу.
   Числа, валюта и громкость сохраняются по кнопке.
 */
-["enabled", "soundEnabled", "gifEnabled", "ttsEnabled"].forEach(id => {
+["enabled", "soundEnabled", "gifEnabled", "ttsReadName", "ttsReadAmount", "ttsReadMessage"].forEach(id => {
   $(id).addEventListener("change", () => {
     if (isApplyingRemoteSettings) return;
 
