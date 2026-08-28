@@ -30,6 +30,9 @@ const DEFAULTS = {
   duration: 8,
   soundEnabled: true,
   gifEnabled: true,
+  showName: true,
+  showAmount: true,
+  showMessage: true,
   ttsEnabled: true,
   ttsReadName: true,
   ttsReadAmount: true,
@@ -134,6 +137,14 @@ async function showDonate(donate) {
   nameEl.textContent = name;
   amountEl.textContent = `${amount} ${currency}`;
   messageEl.textContent = message;
+
+  /*
+    Отображение и TTS — независимые функции.
+    Даже если элемент скрыт визуально, его можно продолжать озвучивать.
+  */
+  nameEl.hidden = settings.showName === false;
+  amountEl.hidden = settings.showAmount === false;
+  messageEl.hidden = settings.showMessage === false;
 
   const gifPath =
     settings.gifEnabled && GIFS.length > 0
