@@ -33,23 +33,16 @@ body{
   display:inline-flex;
   width:max-content;
   max-width:min(92vw,1050px);
-  min-width:280px;
+  min-width:0;
   align-items:center;
   gap:18px;
   padding:20px 24px;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.14);
-  border-radius:24px;
-  background:linear-gradient(
-    135deg,
-    rgba(28,20,42,.97),
-    rgba(12,12,20,.96) 45%,
-    rgba(24,10,28,.96)
-  );
-  box-shadow:
-    0 24px 80px rgba(0,0,0,.58),
-    0 0 34px rgba(255,33,99,.22);
-  backdrop-filter:blur(10px)
+  overflow:visible;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  backdrop-filter:none
 }
 
 .donate-alert[hidden]{display:none}
@@ -57,22 +50,7 @@ body{
 .donate-alert.hide{animation:alertOut .45s ease-in both}
 
 .alert-glow{
-  position:absolute;
-  inset:-3px;
-  z-index:-1;
-  border-radius:27px;
-  background:linear-gradient(
-    120deg,
-    #ff1f63,
-    #ff8a00,
-    #7d35ff,
-    #00d7ff,
-    #ff1f63
-  );
-  background-size:300% 300%;
-  filter:blur(19px);
-  opacity:.27;
-  animation:glowMove 4s linear infinite
+  display:none
 }
 
 /* Блок появляется только при использовании GIF */
@@ -147,7 +125,7 @@ body{
 }
 
 .donate-separator{
-  color:#83838f
+  display:none
 }
 
 .donate-message{
@@ -181,10 +159,10 @@ body{
 
   .donate-alert{
     max-width:96vw;
-    min-width:220px;
+    min-width:0;
     gap:12px;
     padding:16px 18px;
-    border-radius:19px
+    border-radius:0
   }
 
   .media-box{
