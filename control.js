@@ -34,6 +34,7 @@ const DEFAULTS = {
   soundEnabled: true,
   gifEnabled: true,
   ttsEnabled: true,
+  ttsVoiceMode: "funny",
   volume: 70
 };
 
@@ -1182,6 +1183,9 @@ function normalizeSettings(raw = {}) {
     soundEnabled: Boolean(raw.soundEnabled),
     gifEnabled: Boolean(raw.gifEnabled),
     ttsEnabled: Boolean(raw.ttsEnabled),
+    ttsVoiceMode: ["funny", "random_cis", "random_ru", "random_all", "first"].includes(raw.ttsVoiceMode)
+      ? raw.ttsVoiceMode
+      : (raw.ttsVoiceMode === "random" ? "random_cis" : DEFAULTS.ttsVoiceMode),
     volume: Math.min(
       100,
       Math.max(0, Number(raw.volume) || 0)
@@ -1284,6 +1288,7 @@ function readForm() {
     soundEnabled: $("soundEnabled").checked,
     gifEnabled: $("gifEnabled").checked,
     ttsEnabled: $("ttsEnabled").checked,
+    ttsVoiceMode: $("ttsVoiceMode").value,
     volume: $("volume").value
   });
 }
@@ -1600,6 +1605,22 @@ $("openOverlay").addEventListener("click", () => {
         : "Настройка сохранена."
     );
   });
+});
+
+$("ttsVoiceMode").addEventListener("change", () => {
+  if (isApplyingRemoteSettings) return;
+
+  const next = readForm();
+  current = next;
+  saveLocal(next);
+  const labels = {
+    funny: "Включён угарный микс TTS.",
+    random_cis: "Включён случайный СНГ-микс TTS.",
+    random_ru: "Включён случайный русский голос TTS.",
+    random_all: "Включён случайный голос из всех доступных.",
+    first: "Включён обычный русский голос TTS."
+  };
+  saveSettings(labels[next.ttsVoiceMode] || "Настройка голоса TTS сохранена.");
 });
 
 $("sendManual").addEventListener("click", () => {
