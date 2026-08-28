@@ -148,7 +148,7 @@ async function showDonate(donate) {
   const amount = Number(donate.amount || 0);
   const currency = donate.currency || settings.currency;
   const message = String(donate.message || "Спасибо за стрим!");
-  const alertStartedAt = Date.now();
+  const startedAt = Date.now();
 
   nameEl.textContent = name;
   amountEl.textContent = `${amount} ${currency}`;
@@ -169,52 +169,60 @@ async function showDonate(donate) {
   alertBox.classList.add("show");
 
   /*
-    ФАЗА 1: сначала полностью видеоэффект + его собственный звук.
-    TTS здесь ещё не запускается, поэтому звук не накладывается.
+    1) СНАЧАЛА видеоэффект + его собственный звук.
+    Ждём именно окончания видео. Звук у нас вырезан из того же ролика,
+    поэтому он идёт синхронно. После видео принудительно останавливаем звук.
   */
   if (selectedEffect?.video) {
     gifEl.src = selectedEffect.video;
     gifEl.currentTime = 0;
     mediaBox.hidden = false;
 
-    const videoPromise = playEffectVideoAndWait();
-    const soundPromise =
-      settings.soundEnabled && selectedEffect.sound
-        ? playNotificationSoundAndWait(selectedEffect.sound)
-        : Promise.resolve();
+    if (settings.soundEnabled && selectedEffect.sound) {
+      playNotificationSound(selectedEffect.sound);
+    }
 
-    await Promise.all([videoPromise, soundPromise]);
+    await playVideoEffectAndWait();
 
     gifEl.pause();
     gifEl.currentTime = 0;
     mediaBox.hidden = true;
+
     audioEl.pause();
     audioEl.currentTime = 0;
   } else {
     gifEl.pause();
     gifEl.removeAttribute("src");
     mediaBox.hidden = true;
+
+    /*
+      Если видеоэффекты выключены, но TTS включён,
+      не делаем лишнюю задержку.
+    */
   }
 
   /*
-    ФАЗА 2: только после окончания видео и его звука
-    читаем ник -> сумму -> сообщение.
+    2) ТОЛЬКО ПОСЛЕ окончания видеоэффекта запускаем TTS.
+    Саму рабочую функцию speakDonate не переписываем.
   */
   if (
     settings.ttsEnabled !== false &&
-    (settings.ttsReadName !== false || settings.ttsReadAmount !== false || settings.ttsReadMessage !== false)
+    (settings.ttsReadName !== false ||
+     settings.ttsReadAmount !== false ||
+     settings.ttsReadMessage !== false)
   ) {
-    await speakDonateAndWait({name, amount, currency, message});
+    speakDonate({name, amount, currency, message});
+    await waitForTtsToFinish();
   }
 
   /*
-    duration остаётся минимальным временем показа алерта.
-    Эффект и TTS никогда не обрываются из-за этой настройки.
+    duration = минимальная общая длительность алерта.
+    Если видео + TTS были длиннее, они не обрезаются.
   */
-  const minDisplayMs = Math.max(3, Number(settings.duration) || 8) * 1000;
-  const elapsedMs = Date.now() - alertStartedAt;
-  if (elapsedMs < minDisplayMs) {
-    await wait(minDisplayMs - elapsedMs);
+  const minimumMs = Math.max(3, Number(settings.duration) || 8) * 1000;
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < minimumMs) {
+    await wait(minimumMs - elapsed);
   }
 
   alertBox.classList.remove("show");
@@ -223,108 +231,132 @@ async function showDonate(donate) {
 
   alertBox.hidden = true;
   alertBox.classList.remove("hide");
+
   gifEl.pause();
   gifEl.currentTime = 0;
   mediaBox.hidden = true;
+
   audioEl.pause();
   audioEl.currentTime = 0;
 }
 
-function playEffectVideoAndWait() {
+/*
+  Надёжно ждём окончания видео.
+  Есть страховочный таймер, чтобы OBS Browser Source не мог повиснуть навсегда.
+*/
+function playVideoEffectAndWait() {
   return new Promise(resolve => {
     let finished = false;
+    let safetyTimer = null;
 
     const done = () => {
       if (finished) return;
       finished = true;
+
       gifEl.removeEventListener("ended", done);
       gifEl.removeEventListener("error", done);
+      gifEl.removeEventListener("abort", done);
+
+      if (safetyTimer) clearTimeout(safetyTimer);
       resolve();
     };
 
-    gifEl.addEventListener("ended", done, {once: true});
-    gifEl.addEventListener("error", done, {once: true});
+    gifEl.addEventListener("ended", done);
+    gifEl.addEventListener("error", done);
+    gifEl.addEventListener("abort", done);
 
-    const playPromise = gifEl.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(error => {
-        console.warn("Не удалось воспроизвести видеоэффект:", error);
-        done();
-      });
+    const startPlayback = () => {
+      const playPromise = gifEl.play();
+
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(error => {
+          console.warn("Не удалось воспроизвести видеоэффект:", error);
+          done();
+        });
+      }
+
+      const duration =
+        Number.isFinite(gifEl.duration) && gifEl.duration > 0
+          ? gifEl.duration
+          : 15;
+
+      safetyTimer = setTimeout(done, (duration + 2) * 1000);
+    };
+
+    if (gifEl.readyState >= 1) {
+      startPlayback();
+    } else {
+      gifEl.addEventListener("loadedmetadata", startPlayback, {once: true});
+      safetyTimer = setTimeout(done, 17000);
     }
-
-    const fallbackSeconds =
-      Number.isFinite(gifEl.duration) && gifEl.duration > 0
-        ? gifEl.duration + 2
-        : 30;
-
-    setTimeout(done, fallbackSeconds * 1000);
   });
+}
+
+/*
+  Ждём окончания уже существующего рабочего speechSynthesis.
+  Никаких изменений логики выбора голоса, текста, суммы и валюты.
+*/
+async function waitForTtsToFinish() {
+  if (!("speechSynthesis" in window)) return;
+
+  const synth = window.speechSynthesis;
+
+  /*
+    Даём Chromium короткое время реально перевести utterance
+    в состояние speaking.
+  */
+  await wait(120);
+
+  const started = Date.now();
+  const maxWaitMs = 120000;
+
+  while (
+    (synth.speaking || synth.pending || window.__strimkoCurrentSpeech) &&
+    Date.now() - started < maxWaitMs
+  ) {
+    if (synth.paused) synth.resume();
+    await wait(100);
+  }
 }
 
 let effectAudioContext = null;
 let effectAudioSource = null;
 let effectGainNode = null;
 
-function playNotificationSoundAndWait(soundPath) {
-  return new Promise(resolve => {
-    if (!soundPath) {
-      resolve();
-      return;
+function playNotificationSound(soundPath) {
+  if (!soundPath) return;
+
+  audioEl.pause();
+  audioEl.src = soundPath;
+  audioEl.currentTime = 0;
+
+  const effectVolume = Math.min(
+    2,
+    Math.max(0, Number(settings.effectVolume ?? 100) / 100)
+  );
+
+  try {
+    if (!effectAudioContext) {
+      effectAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+      effectAudioSource = effectAudioContext.createMediaElementSource(audioEl);
+      effectGainNode = effectAudioContext.createGain();
+      effectAudioSource.connect(effectGainNode);
+      effectGainNode.connect(effectAudioContext.destination);
     }
 
-    audioEl.pause();
-    audioEl.src = soundPath;
-    audioEl.currentTime = 0;
+    effectGainNode.gain.value = effectVolume;
+    audioEl.volume = 1;
 
-    const effectVolume = Math.min(
-      2,
-      Math.max(0, Number(settings.effectVolume ?? 100) / 100)
-    );
-
-    try {
-      if (!effectAudioContext) {
-        effectAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        effectAudioSource = effectAudioContext.createMediaElementSource(audioEl);
-        effectGainNode = effectAudioContext.createGain();
-        effectAudioSource.connect(effectGainNode);
-        effectGainNode.connect(effectAudioContext.destination);
-      }
-
-      effectGainNode.gain.value = effectVolume;
-      audioEl.volume = 1;
-
-      if (effectAudioContext.state === "suspended") {
-        effectAudioContext.resume().catch(() => {});
-      }
-    } catch (error) {
-      console.warn("Web Audio volume fallback:", error);
-      audioEl.volume = Math.min(1, effectVolume);
+    if (effectAudioContext.state === "suspended") {
+      effectAudioContext.resume().catch(() => {});
     }
+  } catch (error) {
+    console.warn("Web Audio volume fallback:", error);
+    audioEl.volume = Math.min(1, effectVolume);
+  }
 
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      audioEl.removeEventListener("ended", done);
-      audioEl.removeEventListener("error", done);
-      resolve();
-    };
-
-    audioEl.addEventListener("ended", done, {once: true});
-    audioEl.addEventListener("error", done, {once: true});
-
-    audioEl.play().catch(error => {
-      console.warn("Не удалось воспроизвести звук эффекта:", error);
-      done();
-    });
-
-    const fallbackSeconds =
-      Number.isFinite(audioEl.duration) && audioEl.duration > 0
-        ? audioEl.duration + 2
-        : 30;
-
-    setTimeout(done, fallbackSeconds * 1000);
+  audioEl.play().catch(error => {
+    console.warn("Не удалось воспроизвести звук эффекта:", error);
   });
 }
 
@@ -567,92 +599,83 @@ function numberToRussianWords(value) {
   Ник, сумма и сообщение включаются независимо друг от друга.
   Используется стандартный системный голос браузера/Windows.
 */
-function speakDonateAndWait(donate) {
-  return new Promise(resolve => {
-    if (!("speechSynthesis" in window)) {
-      console.warn("В этом браузере синтез речи недоступен.");
-      resolve();
-      return;
+function speakDonate(donate) {
+  if (!("speechSynthesis" in window)) {
+    console.warn("В этом браузере синтез речи недоступен.");
+    return;
+  }
+
+  try {
+    const synth = window.speechSynthesis;
+    const parts = [];
+
+    if (settings.ttsReadName !== false) {
+      const name = String(donate.name || "").trim();
+      if (name) parts.push(name);
     }
 
-    try {
-      const synth = window.speechSynthesis;
-      const parts = [];
-
-      if (settings.ttsReadName !== false) {
-        const name = String(donate.name || "").trim();
-        if (name) parts.push(name);
-      }
-
-      if (settings.ttsReadAmount !== false) {
-        const spokenAmount = numberToRussianWords(donate.amount);
-        const spokenCurrency = currencyForSpeech(donate.currency, donate.amount);
-        const amountPart = `${spokenAmount} ${spokenCurrency}`.trim();
-        if (amountPart) parts.push(amountPart);
-      }
-
-      if (settings.ttsReadMessage !== false) {
-        const message = String(donate.message || "").trim();
-        if (message) parts.push(message);
-      }
-
-      const speechText = parts.join(". ").trim();
-
-      if (!speechText) {
-        resolve();
-        return;
-      }
-
-      synth.cancel();
-      synth.resume();
-
-      const utterance = new SpeechSynthesisUtterance(speechText);
-      const selectedVoice = selectTtsVoice();
-      const delivery = funnyDelivery();
-
-      utterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : "ru-RU";
-      utterance.rate = delivery.rate;
-      utterance.pitch = delivery.pitch;
-      utterance.volume = Math.min(
-        1,
-        Math.max(0.1, Number(settings.volume) / 100)
-      );
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
-      }
-
-      let finished = false;
-      const done = () => {
-        if (finished) return;
-        finished = true;
-        window.__strimkoCurrentSpeech = null;
-        resolve();
-      };
-
-      utterance.onend = done;
-      utterance.onerror = event => {
-        console.warn("Ошибка озвучивания:", event.error);
-        done();
-      };
-
-      window.__strimkoCurrentSpeech = utterance;
-      synth.speak(utterance);
-
-      setTimeout(() => {
-        if (synth.paused) synth.resume();
-      }, 900);
-
-      const estimatedSeconds = Math.max(
-        8,
-        Math.min(120, speechText.length / 8)
-      );
-      setTimeout(done, estimatedSeconds * 1000);
-    } catch (error) {
-      console.warn("Не удалось запустить озвучивание:", error);
-      resolve();
+    if (settings.ttsReadAmount !== false) {
+      const spokenAmount = numberToRussianWords(donate.amount);
+      const spokenCurrency = currencyForSpeech(donate.currency, donate.amount);
+      const amountPart = `${spokenAmount} ${spokenCurrency}`.trim();
+      if (amountPart) parts.push(amountPart);
     }
-  });
+
+    if (settings.ttsReadMessage !== false) {
+      const message = String(donate.message || "").trim();
+      if (message) parts.push(message);
+    }
+
+    const speechText = parts.join(". ").trim();
+
+    // Если все три переключателя выключены — ничего не читаем.
+    if (!speechText) return;
+
+    synth.cancel();
+    synth.resume();
+
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    const selectedVoice = selectTtsVoice();
+
+    const delivery = funnyDelivery();
+    utterance.lang = selectedVoice && selectedVoice.lang ? selectedVoice.lang : "ru-RU";
+    utterance.rate = delivery.rate;
+    utterance.pitch = delivery.pitch;
+    utterance.volume = Math.min(
+      1,
+      Math.max(0.1, Number(settings.volume) / 100)
+    );
+
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
+
+    utterance.onerror = event => {
+      console.warn("Ошибка озвучивания:", event.error);
+    };
+
+    /*
+      В OBS/Chromium объект необходимо сохранить до конца чтения,
+      иначе сборщик мусора иногда обрывает озвучку.
+    */
+    window.__strimkoCurrentSpeech = utterance;
+
+    utterance.onend = () => {
+      window.__strimkoCurrentSpeech = null;
+    };
+
+    synth.speak(utterance);
+
+    /*
+      Дополнительный resume исправляет ситуацию,
+      когда Chromium ставит синтез речи на паузу.
+    */
+    setTimeout(() => {
+      if (synth.paused) synth.resume();
+    }, 900);
+  } catch (error) {
+    console.warn("Не удалось запустить озвучивание:", error);
+  }
 }
 
 if ("speechSynthesis" in window) {
