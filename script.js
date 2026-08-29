@@ -201,10 +201,11 @@ async function showDonate(donate) {
 function playNotificationSound() {
   if (SOUNDS.length > 0) {
     audioEl.src = randomItem(SOUNDS);
-    audioEl.volume = Math.min(
+    const normalizedVolume = Math.min(
       1,
       Math.max(0, Number(settings.volume) / 100)
     );
+    audioEl.volume = normalizedVolume;
     audioEl.currentTime = 0;
     audioEl.play().catch(() => {});
     return;
@@ -219,12 +220,21 @@ function playNotificationSound() {
     const now = context.currentTime;
 
     gain.connect(context.destination);
-    gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(
-      Math.max(0.01, Number(settings.volume) / 350),
+    const normalizedVolume = Math.min(
+      1,
+      Math.max(0, Number(settings.volume) / 100)
+    );
+
+    /*
+      Раньше даже при 0% оставался минимум 0.01, поэтому звук
+      всё равно был слышен. Теперь 0% = настоящий mute.
+    */
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(
+      normalizedVolume * 0.32,
       now + 0.02
     );
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.1);
+    gain.gain.linearRampToValueAtTime(0, now + 1.1);
 
     [659.25, 783.99, 987.77].forEach((frequency, index) => {
       const oscillator = context.createOscillator();
@@ -524,7 +534,7 @@ function speakDonate(donate) {
     utterance.pitch = delivery.pitch;
     utterance.volume = Math.min(
       1,
-      Math.max(0.1, Number(settings.volume) / 100)
+      Math.max(0, Number(settings.volume) / 100)
     );
 
     if (selectedVoice) {
