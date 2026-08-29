@@ -71,7 +71,26 @@ let activeMessages = [...DEFAULT_MESSAGES];
 
 /* СЮДА ДОБАВЛЯЙ ЗВУКИ */
 const SOUNDS = [
-  // "sounds/bruh.mp3"
+  "sounds/button-14.mp3",
+  "sounds/button-18.mp3",
+  "sounds/button-24.mp3",
+  "sounds/button-28.mp3",
+  "sounds/sound-02.mp3",
+  "sounds/sound-25.mp3",
+  "sounds/sound-26.mp3",
+  "sounds/sound-27.mp3",
+  "sounds/sound-28.mp3",
+  "sounds/sound-29.mp3",
+  "sounds/sound-30.mp3",
+  "sounds/sound-32.mp3",
+  "sounds/sound-34.mp3",
+  "sounds/sound-39.mp3",
+  "sounds/sound-43.mp3",
+  "sounds/sound-55.mp3",
+  "sounds/sound-59.mp3",
+  "sounds/sound-62.mp3",
+  "sounds/sound-64.mp3",
+  "sounds/sound-67.mp3"
 ];
 
 /* ВИДЕОЭФФЕКТЫ ДОНАТА — зелёный фон уже удалён */
@@ -198,57 +217,33 @@ async function showDonate(donate) {
   gifEl.currentTime = 0;
 }
 
+let lastDonateSoundIndex = -1;
+
 function playNotificationSound() {
-  if (SOUNDS.length > 0) {
-    audioEl.src = randomItem(SOUNDS);
-    const normalizedVolume = Math.min(
-      1,
-      Math.max(0, Number(settings.volume) / 100)
-    );
-    audioEl.volume = normalizedVolume;
-    audioEl.currentTime = 0;
-    audioEl.play().catch(() => {});
-    return;
+  if (!SOUNDS.length) return;
+
+  let index;
+  if (SOUNDS.length === 1) {
+    index = 0;
+  } else {
+    do {
+      index = Math.floor(Math.random() * SOUNDS.length);
+    } while (index === lastDonateSoundIndex);
   }
 
-  try {
-    const AudioContextClass =
-      window.AudioContext || window.webkitAudioContext;
+  lastDonateSoundIndex = index;
 
-    const context = new AudioContextClass();
-    const gain = context.createGain();
-    const now = context.currentTime;
+  audioEl.pause();
+  audioEl.src = SOUNDS[index];
+  audioEl.currentTime = 0;
+  audioEl.volume = Math.min(
+    1,
+    Math.max(0, Number(settings.volume) / 100)
+  );
 
-    gain.connect(context.destination);
-    const normalizedVolume = Math.min(
-      1,
-      Math.max(0, Number(settings.volume) / 100)
-    );
-
-    /*
-      Раньше даже при 0% оставался минимум 0.01, поэтому звук
-      всё равно был слышен. Теперь 0% = настоящий mute.
-    */
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(
-      normalizedVolume * 0.32,
-      now + 0.02
-    );
-    gain.gain.linearRampToValueAtTime(0, now + 1.1);
-
-    [659.25, 783.99, 987.77].forEach((frequency, index) => {
-      const oscillator = context.createOscillator();
-      oscillator.type = "sine";
-      oscillator.frequency.value = frequency;
-      oscillator.connect(gain);
-      oscillator.start(now + index * 0.12);
-      oscillator.stop(now + 0.75 + index * 0.12);
-    });
-
-    setTimeout(() => context.close().catch(() => {}), 1600);
-  } catch (error) {
-    console.warn("Не удалось воспроизвести стандартный звук:", error);
-  }
+  audioEl.play().catch(error => {
+    console.warn("Не удалось воспроизвести звук доната:", error);
+  });
 }
 
 /* Загружаем системные голоса Windows/Chromium */
