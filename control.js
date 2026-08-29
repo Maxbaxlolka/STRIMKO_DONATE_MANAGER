@@ -42,7 +42,8 @@ const DEFAULTS = {
   ttsReadAmount: true,
   ttsReadMessage: true,
   ttsVoiceMode: "funny",
-  volume: 70
+  volume: 70,
+  soundVolume: 70
 };
 
 let activeNames = [];
@@ -100,6 +101,10 @@ function normalizeSettings(raw = {}) {
     volume: Math.min(
       100,
       Math.max(0, Number(raw.volume) || 0)
+    ),
+    soundVolume: Math.min(
+      100,
+      Math.max(0, raw.soundVolume == null ? DEFAULTS.soundVolume : Number(raw.soundVolume) || 0)
     )
   };
 
@@ -179,6 +184,7 @@ function applySettings(settings) {
   });
 
   $("volumeValue").textContent = `${current.volume}%`;
+  $("soundVolumeValue").textContent = `${current.soundVolume}%`;
   setStatus(current.enabled);
   startCountdown();
 
@@ -206,7 +212,8 @@ function readForm() {
     ttsReadAmount: $("ttsReadAmount").checked,
     ttsReadMessage: $("ttsReadMessage").checked,
     ttsVoiceMode: $("ttsVoiceMode").value,
-    volume: $("volume").value
+    volume: $("volume").value,
+    soundVolume: $("soundVolume").value
   });
 }
 
@@ -507,6 +514,27 @@ $("volume").addEventListener("input", () => {
 $("volume").addEventListener("change", () => {
   if (isApplyingRemoteSettings) return;
   saveSettings("Громкость сохранена.");
+});
+
+$("soundVolume").addEventListener("input", () => {
+  const value = Math.min(
+    100,
+    Math.max(0, Number($("soundVolume").value) || 0)
+  );
+
+  $("soundVolumeValue").textContent = `${value}%`;
+
+  current = {
+    ...current,
+    soundVolume: value
+  };
+
+  saveLocal(current);
+});
+
+$("soundVolume").addEventListener("change", () => {
+  if (isApplyingRemoteSettings) return;
+  saveSettings("Громкость звуков из папки sounds сохранена.");
 });
 
 $("saveSettings").addEventListener("click", () => {
