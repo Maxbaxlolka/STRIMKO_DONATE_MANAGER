@@ -39,7 +39,8 @@ const DEFAULTS = {
   ttsReadAmount: true,
   ttsReadMessage: true,
   ttsVoiceMode: "funny",
-  volume: 70
+  volume: 70,
+  soundVolume: 70
 };
 
 /* СЮДА ДОБАВЛЯЙ НИКИ */
@@ -72,7 +73,6 @@ let activeMessages = [...DEFAULT_MESSAGES];
 /* СЮДА ДОБАВЛЯЙ ЗВУКИ */
 const SOUNDS = [
   "sounds/button-14.mp3",
-  "sounds/button-18.mp3",
   "sounds/button-24.mp3",
   "sounds/button-28.mp3",
   "sounds/sound-02.mp3",
@@ -87,10 +87,8 @@ const SOUNDS = [
   "sounds/sound-39.mp3",
   "sounds/sound-43.mp3",
   "sounds/sound-55.mp3",
-  "sounds/sound-59.mp3",
   "sounds/sound-62.mp3",
-  "sounds/sound-64.mp3",
-  "sounds/sound-67.mp3"
+  "sounds/sound-64.mp3"
 ];
 
 /* ВИДЕОЭФФЕКТЫ ДОНАТА — зелёный фон уже удалён */
@@ -238,7 +236,10 @@ function playNotificationSound() {
   audioEl.currentTime = 0;
   audioEl.volume = Math.min(
     1,
-    Math.max(0, Number(settings.volume) / 100)
+    Math.max(
+      0,
+      Number(settings.soundVolume ?? settings.volume ?? 70) / 100
+    )
   );
 
   audioEl.play().catch(error => {
