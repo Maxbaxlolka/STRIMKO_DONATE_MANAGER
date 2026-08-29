@@ -484,7 +484,29 @@ $("overlayUrl").textContent =
   new URL("index.html", location.href).href;
 
 $("volume").addEventListener("input", () => {
-  $("volumeValue").textContent = `${$("volume").value}%`;
+  const value = Math.min(100, Math.max(0, Number($("volume").value) || 0));
+
+  $("volumeValue").textContent = `${value}%`;
+
+  /*
+    Обновляем текущую настройку сразу, чтобы панель не продолжала
+    использовать старую громкость до нажатия "Сохранить настройки".
+  */
+  current = {
+    ...current,
+    volume: value
+  };
+
+  saveLocal(current);
+});
+
+/*
+  После отпускания ползунка сразу сохраняем громкость в Firebase.
+  OBS/overlay получает новое значение без отдельного нажатия кнопки.
+*/
+$("volume").addEventListener("change", () => {
+  if (isApplyingRemoteSettings) return;
+  saveSettings("Громкость сохранена.");
 });
 
 $("saveSettings").addEventListener("click", () => {
@@ -506,7 +528,7 @@ $("openOverlay").addEventListener("click", () => {
 
 /*
   Переключатели сохраняются сразу.
-  Числа, валюта и громкость сохраняются по кнопке.
+  Числа и валюта сохраняются по кнопке. Громкость сохраняется сразу после отпускания ползунка.
 */
 ["enabled", "soundEnabled", "gifEnabled", "showName", "showAmount", "showMessage", "ttsReadName", "ttsReadAmount", "ttsReadMessage"].forEach(id => {
   $(id).addEventListener("change", () => {
