@@ -40,7 +40,8 @@ const DEFAULTS = {
   ttsReadMessage: true,
   ttsVoiceMode: "funny",
   volume: 70,
-  soundVolume: 70
+  soundVolume: 70,
+  effectVolume: 70
 };
 
 /* СЮДА ДОБАВЛЯЙ НИКИ */
@@ -96,6 +97,8 @@ const GIFS = [
   "effects/money_rain.webm"
 ];
 
+const EFFECT_SOUND = "effects/money_rain_audio.ogg";
+
 const alertBox = document.getElementById("donateAlert");
 const nameEl = document.getElementById("donateName");
 const amountEl = document.getElementById("donateAmount");
@@ -103,6 +106,7 @@ const messageEl = document.getElementById("donateMessage");
 const mediaBox = document.getElementById("mediaBox");
 const gifEl = document.getElementById("donateGif");
 const audioEl = document.getElementById("donateAudio");
+const effectAudioEl = document.getElementById("effectAudio");
 
 let settings = {...DEFAULTS};
 let queue = [];
@@ -131,6 +135,54 @@ function wait(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function waitForMediaEnd(media, fallbackMs = 9000) {
+  return new Promise(resolve => {
+    if (!media) {
+      resolve();
+      return;
+    }
+
+    let finished = false;
+
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      media.removeEventListener("ended", done);
+      media.removeEventListener("error", done);
+      resolve();
+    };
+
+    const timer = setTimeout(done, fallbackMs);
+    media.addEventListener("ended", done, {once: true});
+    media.addEventListener("error", done, {once: true});
+
+    if (media.ended) done();
+  });
+}
+
+function playEffectSound() {
+  if (!effectAudioEl || !EFFECT_SOUND) return Promise.resolve();
+
+  effectAudioEl.pause();
+  effectAudioEl.src = EFFECT_SOUND;
+  effectAudioEl.currentTime = 0;
+  effectAudioEl.volume = Math.min(
+    1,
+    Math.max(0, Number(settings.effectVolume ?? 70) / 100)
+  );
+
+  const playPromise = effectAudioEl.play();
+
+  if (playPromise && typeof playPromise.catch === "function") {
+    playPromise.catch(error => {
+      console.warn("Не удалось воспроизвести звук эффекта:", error);
+    });
+  }
+
+  return waitForMediaEnd(effectAudioEl, 9000);
+}
+
 function receiveDonate(data) {
   if (!data || data.type !== "donate") return;
   queue.push(data);
@@ -156,10 +208,6 @@ async function showDonate(donate) {
   amountEl.textContent = `${amount} ${currency}`;
   messageEl.textContent = message;
 
-  /*
-    Отображение и TTS — независимые функции.
-    Даже если элемент скрыт визуально, его можно продолжать озвучивать.
-  */
   nameEl.hidden = settings.showName === false;
   amountEl.hidden = settings.showAmount === false;
   messageEl.hidden = settings.showMessage === false;
@@ -169,40 +217,69 @@ async function showDonate(donate) {
       ? randomItem(GIFS)
       : "";
 
-  if (gifPath) {
-    gifEl.src = gifPath;
-    gifEl.currentTime = 0;
-    mediaBox.hidden = false;
-    const playPromise = gifEl.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {});
-    }
-  } else {
-    gifEl.pause();
-    gifEl.removeAttribute("src");
-    mediaBox.hidden = true;
-  }
-
   alertBox.hidden = false;
   alertBox.classList.remove("hide");
   void alertBox.offsetWidth;
   alertBox.classList.add("show");
 
-  if (settings.soundEnabled) {
-    playNotificationSound();
+  let effectVideoPromise = Promise.resolve();
+  let effectSoundPromise = Promise.resolve();
+
+  /*
+    ЭТАП 1:
+    Сначала запускаем новый видеоэффект и отдельно извлечённый из него звук.
+    Видео оставлено muted, чтобы аудио не дублировалось.
+  */
+  if (gifPath) {
+    gifEl.src = gifPath;
+    gifEl.currentTime = 0;
+    mediaBox.hidden = false;
+
+    const playPromise = gifEl.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+
+    effectVideoPromise = waitForMediaEnd(gifEl, 9000);
+    effectSoundPromise = playEffectSound();
+  } else {
+    gifEl.pause();
+    gifEl.removeAttribute("src");
+    mediaBox.hidden = true;
+
+    /*
+      Если визуальный эффект отключён, старые случайные звуки из папки sounds
+      продолжают работать как раньше.
+    */
+    if (settings.soundEnabled) {
+      playNotificationSound();
+      effectSoundPromise = waitForMediaEnd(audioEl, 9000);
+    }
   }
 
   /*
-    Небольшая задержка нужна, чтобы OBS успел показать алерт
-    и загрузить системные голоса перед началом чтения.
+    Ждём, пока закончатся и видеоэффект, и его отдельный звук.
+    Только после этого запускается TTS.
+  */
+  await Promise.all([effectVideoPromise, effectSoundPromise]);
+
+  /*
+    ЭТАП 2:
+    Ник -> сумма -> сообщение озвучиваются только после окончания эффекта.
   */
   if (
     settings.ttsEnabled !== false &&
-    (settings.ttsReadName !== false || settings.ttsReadAmount !== false || settings.ttsReadMessage !== false)
+    (settings.ttsReadName !== false ||
+     settings.ttsReadAmount !== false ||
+     settings.ttsReadMessage !== false)
   ) {
-    setTimeout(() => speakDonate({name, amount, currency, message}), 350);
+    speakDonate({name, amount, currency, message});
   }
 
+  /*
+    После запуска TTS держим сам алерт на экране согласно duration.
+    Это значение больше не определяет задержку до TTS.
+  */
   await wait(Math.max(3, Number(settings.duration) || 8) * 1000);
 
   alertBox.classList.remove("show");
@@ -211,8 +288,14 @@ async function showDonate(donate) {
 
   alertBox.hidden = true;
   alertBox.classList.remove("hide");
+
   gifEl.pause();
   gifEl.currentTime = 0;
+
+  if (effectAudioEl) {
+    effectAudioEl.pause();
+    effectAudioEl.currentTime = 0;
+  }
 }
 
 let lastDonateSoundIndex = -1;
