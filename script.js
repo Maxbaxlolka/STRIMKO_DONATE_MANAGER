@@ -235,13 +235,45 @@ async function showDonate(donate) {
     gifEl.currentTime = 0;
     mediaBox.hidden = false;
 
-    const playPromise = gifEl.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-      playPromise.catch(() => {});
-    }
-
+    /*
+      OBS/CEF может начать декодировать WEBM не мгновенно.
+      Поэтому звук больше не стартует одновременно с вызовом video.play().
+      Сначала ждём реального события "playing" у видео и только тогда
+      запускаем отдельную аудиодорожку с позиции 0.
+    */
     effectVideoPromise = waitForMediaEnd(gifEl, 9000);
-    effectSoundPromise = playEffectSound();
+
+    effectSoundPromise = new Promise(resolve => {
+      let soundStarted = false;
+
+      const startSyncedSound = () => {
+        if (soundStarted) return;
+        soundStarted = true;
+
+        gifEl.removeEventListener("playing", startSyncedSound);
+        gifEl.removeEventListener("error", startSyncedSound);
+
+        playEffectSound().then(resolve);
+      };
+
+      gifEl.addEventListener("playing", startSyncedSound, {once: true});
+      gifEl.addEventListener("error", startSyncedSound, {once: true});
+
+      const playPromise = gifEl.play();
+
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(error => {
+          console.warn("Не удалось запустить видеоэффект:", error);
+          startSyncedSound();
+        });
+      }
+
+      /*
+        Страховка для OBS: если событие playing почему-то не пришло,
+        не зависаем навсегда.
+      */
+      setTimeout(startSyncedSound, 1200);
+    });
   } else {
     gifEl.pause();
     gifEl.removeAttribute("src");
