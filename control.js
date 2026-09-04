@@ -43,7 +43,8 @@ const DEFAULTS = {
   ttsReadMessage: true,
   ttsVoiceMode: "funny",
   volume: 70,
-  soundVolume: 70
+  soundVolume: 70,
+  effectVolume: 70
 };
 
 let activeNames = [];
@@ -105,6 +106,10 @@ function normalizeSettings(raw = {}) {
     soundVolume: Math.min(
       100,
       Math.max(0, raw.soundVolume == null ? DEFAULTS.soundVolume : Number(raw.soundVolume) || 0)
+    ),
+    effectVolume: Math.min(
+      100,
+      Math.max(0, raw.effectVolume == null ? DEFAULTS.effectVolume : Number(raw.effectVolume) || 0)
     )
   };
 
@@ -185,6 +190,7 @@ function applySettings(settings) {
 
   $("volumeValue").textContent = `${current.volume}%`;
   $("soundVolumeValue").textContent = `${current.soundVolume}%`;
+  $("effectVolumeValue").textContent = `${current.effectVolume}%`;
   setStatus(current.enabled);
   startCountdown();
 
@@ -213,7 +219,8 @@ function readForm() {
     ttsReadMessage: $("ttsReadMessage").checked,
     ttsVoiceMode: $("ttsVoiceMode").value,
     volume: $("volume").value,
-    soundVolume: $("soundVolume").value
+    soundVolume: $("soundVolume").value,
+    effectVolume: $("effectVolume").value
   });
 }
 
@@ -535,6 +542,27 @@ $("soundVolume").addEventListener("input", () => {
 $("soundVolume").addEventListener("change", () => {
   if (isApplyingRemoteSettings) return;
   saveSettings("Громкость звуков из папки sounds сохранена.");
+});
+
+$("effectVolume").addEventListener("input", () => {
+  const value = Math.min(
+    100,
+    Math.max(0, Number($("effectVolume").value) || 0)
+  );
+
+  $("effectVolumeValue").textContent = `${value}%`;
+
+  current = {
+    ...current,
+    effectVolume: value
+  };
+
+  saveLocal(current);
+});
+
+$("effectVolume").addEventListener("change", () => {
+  if (isApplyingRemoteSettings) return;
+  saveSettings("Громкость звука эффекта сохранена.");
 });
 
 $("saveSettings").addEventListener("click", () => {
